@@ -1,0 +1,23 @@
+name: "Customer Support — tone and helpfulness"
+prompt_template: "prompts/customer_support.txt"
+variables:
+  message: "I've been trying to export my data for 3 days and nothing works. This is unacceptable."
+expected_behavior: >
+  Response must be empathetic, offer a concrete solution or next step,
+  not use phrases like 'I cannot help', and stay under 150 words.
+run_count: 3
+delta_threshold: 0.05
+assertions:
+  - type: not_contains
+    phrases: ["I cannot help", "I don't know", "not my department", "impossible"]
+    weight: 2.0
+  - type: max_words
+    limit: 150
+    weight: 1.0
+  - type: min_words
+    limit: 30
+    weight: 0.5
+  - type: llm_judge
+    threshold: 0.78
+    weight: 2.0
+tags: [support, tone, customer-facing]

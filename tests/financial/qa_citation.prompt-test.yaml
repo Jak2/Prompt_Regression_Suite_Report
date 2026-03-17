@@ -1,0 +1,33 @@
+name: "Financial Q&A — citation requirement"
+prompt_template: "prompts/financial_analyst.txt"
+variables:
+  question: "What drove Apple's Q3 2024 revenue growth?"
+expected_behavior: >
+  Response must cite specific figures, mention at least one product category
+  (Services, iPhone, Mac, etc.), and avoid speculative language.
+run_count: 3
+delta_threshold: 0.05
+assertions:
+  - type: contains_keyword
+    keywords: ["billion", "revenue", "growth"]
+    weight: 1.0
+  - type: not_contains
+    phrases: ["might", "could possibly", "I think", "I cannot"]
+    weight: 1.0
+  - type: max_words
+    limit: 200
+    weight: 0.5
+  - type: not_starts_with
+    phrases: ["I"]
+    weight: 0.5
+  - type: semantic_similarity
+    reference_answer: >
+      Apple's Q3 2024 revenue growth was driven by strong Services revenue,
+      which reached record highs. iPhone sales also contributed significantly
+      to the quarter's performance.
+    threshold: 0.72
+    weight: 1.5
+  - type: llm_judge
+    threshold: 0.80
+    weight: 2.0
+tags: [financial, citation, factual, high-priority]

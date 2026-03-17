@@ -1,0 +1,69 @@
+name: Prompt Regression — Weekly Drift Detection
+
+on:
+  schedule:
+    - cron: "0 9 * * 1"  # Every Monday at 09:00 UTC
+  workflow_dispatch:      # Allow manual trigger
+
+jobs:
+  weekly-drift-scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout main branch
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run full test suite
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          DATABASE_URL: "sqlite:///./weekly_drift.db"
+        run: |
+          python ci/run_suite.py \
+            --commit-sha "${{ github.sha }}" \
+            --branch-name "main" \
+            --output weekly_results.json
+
+      - name: Send Slack alert on drift
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          python -c "
+          import json, os, httpx
+          data = json.load(open('weekly_results.json'))
+          webhook = os.environ.get('SLACK_WEBHOOK_URL', '')
+          if not webhook:
+              print('No Slack webhook configured.')
+              exit(0)
+          reg_count = data['regression_count']
+          emoji = ':red_circle:' if reg_count > 3 else ':yellow_circle:' if reg_count > 0 else ':white_check_mark:'
+          msg = f'{emoji} Weekly prompt drift scan: {reg_count} regression(s) detected across {data[\"total_tests\"]} test cases.'
+          if reg_count > 0:
+              worst = sorted(data['results'], key=lambda r: r.get('score_delta', 0))[0]
+              msg += f' Worst: {worst[\"test_case_name\"]} ({worst[\"score_delta\"]:+.3f}). Investigate prompt files or check model provider changelog.'
+          else:
+              msg += ' All baselines stable. No action needed.'
+          httpx.post(webhook, json={'text': msg}, timeout=10)
+          print('Slack notification sent')
+          "
+
+      - name: Upload weekly results
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-drift-${{ github.run_id }}
+          path: weekly_results.json
+          retention-days: 90

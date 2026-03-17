@@ -1,0 +1,48 @@
+# Core LLM providers
+anthropic>=0.40.0
+openai>=1.50.0
+
+# Embeddings — local, zero API cost
+sentence-transformers>=3.2.0
+
+# API layer
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+
+# Dashboard
+streamlit>=1.40.0
+plotly>=5.24.0
+pandas>=2.2.0
+
+# Data layer — SQLite default, PostgreSQL-ready
+sqlalchemy>=2.0.0
+
+# Validation & settings
+pydantic>=2.9.0
+pydantic-settings>=2.6.0
+
+# YAML parsing
+pyyaml>=6.0.0
+
+# Async HTTP
+httpx>=0.27.0
+
+# CLI
+typer>=0.13.0
+rich>=13.9.0
+
+# Rule-based assertion utilities
+textstat>=0.7.3
+langdetect>=1.0.9
+
+# Numerical
+numpy>=1.26.0
+
+# Async SQLite driver (required for SQLite + asyncio)
+aiosqlite>=0.20.0
+
+# PostgreSQL async driver (optional, for production)
+# asyncpg>=0.30.0
+
+# Streamlit async compatibility
+nest-asyncio>=1.6.0

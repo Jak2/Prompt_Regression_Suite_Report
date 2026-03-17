@@ -1,0 +1,80 @@
+name: Prompt Regression — PR Check
+
+on:
+  pull_request:
+    paths:
+      - "prompts/**"
+      - "tests/**/*.yaml"
+      - "tests/**/*.yml"
+
+jobs:
+  regression-check:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history needed for git diff
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Detect affected test cases
+        id: detect
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          python ci/detect_affected.py \
+            --base-ref "origin/${{ github.base_ref }}" \
+            2>&1 | tee detection_output.json
+
+      - name: Run affected regression tests
+        id: run_tests
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          DATABASE_URL: "sqlite:///./ci_regression.db"
+        run: |
+          python ci/run_suite.py \
+            --commit-sha "${{ github.sha }}" \
+            --branch-name "${{ github.head_ref }}" \
+            --output ci_results.json
+        continue-on-error: true  # collect results even on regression
+
+      - name: Post PR comment
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPO: ${{ github.repository }}
+        run: |
+          python ci/post_comment.py \
+            --results ci_results.json \
+            --pr-number ${{ github.event.pull_request.number }}
+
+      - name: Upload results artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: regression-results-${{ github.run_id }}
+          path: ci_results.json
+          retention-days: 30
+
+      - name: Fail if regressions detected
+        run: |
+          python -c "
+          import json, sys
+          data = json.load(open('ci_results.json'))
+          if data['has_regressions']:
+              print(f'FAIL: {data[\"regression_count\"]} regression(s) detected')
+              sys.exit(1)
+          print('PASS: no regressions')
+          "

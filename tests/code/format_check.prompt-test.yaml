@@ -1,0 +1,21 @@
+name: "Code Reviewer — JSON output format compliance"
+prompt_template: "prompts/code_reviewer.txt"
+variables:
+  code: |
+    def divide(a, b):
+        return a / b  # no zero division check
+expected_behavior: >
+  Response must be valid JSON with 'issues', 'summary', and 'approve' keys.
+  Must identify the missing zero division check as an issue.
+run_count: 1
+delta_threshold: 0.05
+assertions:
+  - type: valid_json
+    weight: 3.0
+  - type: json_contains_key
+    keys: ["issues", "summary", "approve"]
+    weight: 2.0
+  - type: llm_judge
+    threshold: 0.82
+    weight: 1.0
+tags: [code, structured-output, json]
